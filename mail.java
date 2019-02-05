@@ -13,12 +13,17 @@ import javax.mail.internet.InternetAddress;
 import javax.mail.internet.MimeMessage;
 
 import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.net.URL;
 import java.nio.charset.Charset;
+import java.util.Date;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -59,7 +64,7 @@ public class mail {
       try {
 	      while (true){
 	    	  Thread.sleep(500);
-	    	  System.out.println("new while loop iteration begins -----------------\n");
+	    	  System.out.println("Listening for new emails -----------------\n");
 	      //create properties field
 	      Properties properties = new Properties();
 	
@@ -78,7 +83,8 @@ public class mail {
 	
 	      // retrieve the messages from the folder in an array and print it
 	      Message[] messages = emailFolder.getMessages();
-	      System.out.println("messages.length---" + messages.length);
+	      if(messages.length>0)
+	    	  System.out.println("messages.length---" + messages.length);
 	
 	      for (int i = 0, n = messages.length; i < n; i++) {
 	         Message message = messages[i];
@@ -91,10 +97,10 @@ public class mail {
 	
 	         System.out.println("---------------------------------");
 	         System.out.println("Email Number " + (i + 1));
-	         System.out.println("Subject: " + message.getSubject());
+	         System.out.println("\nSubject: " + message.getSubject());
 	         System.out.println("From: " + message.getFrom()[0]);
-	         System.out.println("To: " + message.getAllRecipients().toString());
-	         System.out.println("Received Date:" + message.getReceivedDate());
+	         //System.out.println("To: " + message.getAllRecipients().toString());
+	         //System.out.println("Received Date:" + message.getReceivedDate());
 	         System.out.println("Text: " + bp.getContent().toString());
 	         
 	         //send the body to NLP engine
@@ -141,9 +147,21 @@ public class mail {
 	                 System.out.println(topIntentJSON);
 	                 //System.out.println("--> "+json.getJSONObject("topScoringIntent").getString("intent"));
 	                 String intent = json.getJSONObject("topScoringIntent").getString("intent");
+	                 String intentscore = json.getJSONObject("topScoringIntent").getString("score");
 	                 String SentimentAnalysisJSON = json.get("sentimentAnalysis").toString();
 	                 //System.out.println("--> "+json.getJSONObject("sentimentAnalysis").getString("label"));
+	                 String sentiment = json.getJSONObject("sentimentAnalysis").getString("label");
+	                 String sentimentscore = json.getJSONObject("sentimentAnalysis").getString("score");
+	                 
 	                 System.out.println(SentimentAnalysisJSON);
+	                 
+	                 System.out.println("The mail was match to intent ->"+intent);
+	                 System.out.println("              with a score of->"+intentscore);
+	                 System.out.println("\n\n");
+	                 System.out.println("The mail sentiment was found to be ->"+sentiment);
+	                 System.out.println("                    with a score of->"+sentimentscore);
+	                 
+	                 System.out.println("\n\n\nReplying to sender now ...");
 	                
 	       	      	EntityUtils.consume(entity);
 	       	      	request.releaseConnection();
@@ -155,7 +173,19 @@ public class mail {
 		            System.out.println("recepient == "+RECIPIENT);
 		            String[] to = { RECIPIENT }; // list of recipient email addresses
 		            String subject = "Your mail has been processed";
-		            String body = "Hello, "+message.getFrom()[0].toString().substring(0,message.getFrom()[0].toString().indexOf(" <"))+",\nOur systems have understood your mail regarding "+intent+".We have begun the appropriate actions.\n\n Team RIO";
+		            String body="";
+		            if(intent.equals("None")){
+		            	body="Hello, "+message.getFrom()[0].toString().substring(0,message.getFrom()[0].toString().indexOf(" <"))+",\nUnfortunately, our systems have not been able to interpret the contents of your mail. A customer care executive will contact you soon.\n\nTeam RIO";
+		            	DateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss");
+		            	Date date = new Date();
+		            	String log_entry="<"+dateFormat.format(date)+">"+bp.getContent().toString();
+		            	File file = new File("C:\\Users\\Roshan Shibu\\Desktop\\RIO_log.txt");
+		            	FileWriter fr = new FileWriter(file, true);
+		            	fr.write(log_entry);
+		            	fr.close();
+		            }
+		            else
+		            	body = "Hello, "+message.getFrom()[0].toString().substring(0,message.getFrom()[0].toString().indexOf(" <"))+",\nOur automated systems have understood your mail regarding "+intent+".We have initiated appropriate actions.\n\n Team RIO";
 		            
 		            sendFromGMail(from, pass, to, subject, body);
 	       	      	flag=1;
