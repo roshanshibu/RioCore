@@ -142,26 +142,22 @@ public class mail {
 	             {
 	                 //System.out.println(EntityUtils.toString(entity));
 	                 JSONObject json = new JSONObject(EntityUtils.toString(entity));
-	                 //System.out.println(json.toString());
+	                 
 	                 String topIntentJSON = json.get("topScoringIntent").toString();
-	                 System.out.println(topIntentJSON);
-	                 //System.out.println("--> "+json.getJSONObject("topScoringIntent").getString("intent"));
 	                 String intent = json.getJSONObject("topScoringIntent").getString("intent");
 	                 String intentscore = json.getJSONObject("topScoringIntent").getString("score");
+	                 
 	                 String SentimentAnalysisJSON = json.get("sentimentAnalysis").toString();
-	                 //System.out.println("--> "+json.getJSONObject("sentimentAnalysis").getString("label"));
 	                 String sentiment = json.getJSONObject("sentimentAnalysis").getString("label");
 	                 String sentimentscore = json.getJSONObject("sentimentAnalysis").getString("score");
 	                 
-	                 System.out.println(SentimentAnalysisJSON);
-	                 
-	                 System.out.println("The mail was match to intent ->"+intent);
-	                 System.out.println("              with a score of->"+intentscore);
-	                 System.out.println("\n\n");
+	                 System.out.println("The mail was matched to intent ->"+intent);
+	                 System.out.println("                with a score of->"+intentscore);
+	                 System.out.println("\n");
 	                 System.out.println("The mail sentiment was found to be ->"+sentiment);
 	                 System.out.println("                    with a score of->"+sentimentscore);
 	                 
-	                 System.out.println("\n\n\nReplying to sender now ...");
+	                 System.out.println("\n\nReplying to sender now ...\n\n");
 	                
 	       	      	EntityUtils.consume(entity);
 	       	      	request.releaseConnection();
@@ -170,7 +166,7 @@ public class mail {
 	       	      	String from = USER_NAME;
 		            String pass = PASSWORD;
 		            String RECIPIENT = message.getFrom()[0].toString().substring(message.getFrom()[0].toString().indexOf("<")+1,message.getFrom()[0].toString().indexOf(">"));
-		            System.out.println("recepient == "+RECIPIENT);
+		            //System.out.println("recepient == "+RECIPIENT);
 		            String[] to = { RECIPIENT }; // list of recipient email addresses
 		            String subject = "Your mail has been processed";
 		            String body="";
