@@ -25,6 +25,7 @@ import java.util.Date;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -36,6 +37,11 @@ import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.utils.URIBuilder;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
+
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.Statement;
+import java.util.Date;
 
 public class mail {
 
@@ -85,7 +91,14 @@ public class mail {
 					//System.out.println("To: " + message.getAllRecipients().toString());
 					//System.out.println("Received Date:" + message.getReceivedDate());
 					System.out.println("Text: " + bp.getContent().toString());
-
+					String MAILTEXT = bp.getContent().toString();
+					String TRUEMAILTEXT = MAILTEXT;
+					MAILTEXT=MAILTEXT.replace("\n", "").replace("\r", "");
+					String SUBJECT = "";
+					if(message.getSubject().equals(""))
+						SUBJECT = "(no subject)"; 
+					else
+						SUBJECT =message.getSubject(); 
 					//send the body to NLP engine
 					HttpClient httpclient = HttpClients.createDefault();
 
@@ -94,52 +107,66 @@ public class mail {
 						String AppId = "15fb095e-dbfc-4b33-b435-e2d9c48f9ac9";
 						String EndpointKey = "58272a2c795749369702922068c382f9";
 						URIBuilder endpointURLbuilder = new URIBuilder("https://westus.api.cognitive.microsoft.com/luis/v2.0/apps/" + AppId + "?");
-						endpointURLbuilder.setParameter("q", bp.getContent().toString());
+						endpointURLbuilder.setParameter("q", MAILTEXT);
 						URI endpointURL = endpointURLbuilder.build();
 						HttpGet request = new HttpGet(endpointURL);
 						request.setHeader("Ocp-Apim-Subscription-Key", EndpointKey);
 						HttpResponse response = httpclient.execute(request);
 						HttpEntity entity = response.getEntity();
 						if (entity != null) {
-							//System.out.println(EntityUtils.toString(entity));
 							JSONObject json = new JSONObject(EntityUtils.toString(entity));
+							//System.out.println(json);
+							
 							//String topIntentJSON = json.get("topScoringIntent").toString();
 							String intent = json.getJSONObject("topScoringIntent").getString("intent");
 							String intentscore = json.getJSONObject("topScoringIntent").getString("score");
+							
 							//String SentimentAnalysisJSON = json.get("sentimentAnalysis").toString();
 							String sentiment = json.getJSONObject("sentimentAnalysis").getString("label");
 							String sentimentscore = json.getJSONObject("sentimentAnalysis").getString("score");
+							
+							String entityx="null";
+							JSONArray array = json.getJSONArray("entities");
+							if (array.length()!=0){
+									entityx = array.getJSONObject(0).getString("entity");
+									//System.out.println("The address is changed to "+entityx);
+							}
 							System.out.println("The mail was matched to intent ->" + intent);
 							System.out.println("                with a score of->" + intentscore);
 							System.out.println("\n");
 							System.out.println("The mail sentiment was found to be ->" + sentiment);
 							System.out.println("                    with a score of->" + sentimentscore);
 							System.out.println("\n\nReplying to sender now ...");
+							
 							EntityUtils.consume(entity);
-
 							request.releaseConnection();
 							request.abort();
 
 							String from = USER_NAME;
 							String pass = PASSWORD;
 							String RECIPIENT = message.getFrom()[0].toString().substring(message.getFrom()[0].toString().indexOf("<") + 1, message.getFrom()[0].toString().indexOf(">"));
-							System.out.println("recepient == " + RECIPIENT);
+							//System.out.println("recepient == " + RECIPIENT);
 							String[] to = { RECIPIENT };
 							String subject = "Your mail has been processed";
 							String body = "";
-
+							
 							if (intent.equals("None")) {
 								body = "Hello, " + message.getFrom()[0].toString().substring(0, message.getFrom()[0].toString().indexOf(" <")) + ",\nUnfortunately, our systems have not been able to interpret the contents of your mail. A customer care executive will contact you soon.\n\nTeam RIO";
 								DateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss");
 								Date date = new Date();
-								String log_entry = "<" + dateFormat.format(date) + ">" + bp.getContent().toString();
+								String log_entry = "<" + dateFormat.format(date) + ">" + MAILTEXT;
 								File file = new File("C:\\Users\\Roshan Shibu\\Desktop\\RIO_log.txt");
 								FileWriter fr = new FileWriter(file, true);
 								fr.write(log_entry);
 								fr.close();
-							} else
+							} 
+							else if(intent.equals("change_address")){
+								body = "Hello, " + message.getFrom()[0].toString().substring(0, message.getFrom()[0].toString().indexOf(" <")) + ",\nOur automated systems have been able to interpret your request for a change in address.\nYour address has been changed to "+entityx+".\n\nHappy to be of service.\nTeam RIO";	
+							}
+							else
 								body = "Hello, " + message.getFrom()[0].toString().substring(0, message.getFrom()[0].toString().indexOf(" <")) + ",\nOur automated systems have understood your mail regarding " + intent + ".We have initiated appropriate actions.\n\n Team RIO";
 
+							addentry(RECIPIENT,SUBJECT,TRUEMAILTEXT,intent,entityx);
 							sendFromGMail(from, pass, to, subject, body);
 						}
 					}
@@ -221,6 +248,32 @@ public class mail {
 		} catch (MessagingException me) {
 			me.printStackTrace();
 		}
+	}
+	
+	public static void addentry(String a,String b,String c,String d,String e){
+		try{
+			Class.forName(com.mysql.jdbc.Driver.class.getName());
+			Connection conn = null;
+			conn = DriverManager.getConnection("jdbc:mysql://localhost/rio","root", "");
+			//System.out.print("Database is connected !");
+			
+			Statement stmt = null;
+			//System.out.println("Inserting records into the table...");
+		      stmt = conn.createStatement();
+		      
+		      Date date = new Date();
+		      long timeMilli = date.getTime();
+		      
+		      String sql = "INSERT INTO data " +
+		    		  "VALUES (\""+a+"\", \""+b+"\", \""+c+"\", \""+d+"\", \""+e+"\", \""+timeMilli+"\")";
+		      stmt.executeUpdate(sql);
+		      conn.close();
+			}
+			catch(Exception ex)
+			{
+			System.out.print("Do not connect to DB - Error:"+e);
+			}
+		
 	}
 
 }
