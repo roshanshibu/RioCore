@@ -1,6 +1,19 @@
 import java.io.*;
 import java.net.*;
+import java.nio.channels.FileChannel;
+import java.sql.Connection;
+import java.sql.DriverManager;
 import java.util.*;
+
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpResponse;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.client.utils.URIBuilder;
+import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.util.EntityUtils;
+
 import com.google.gson.*;
 
 public class AddUtterances {
@@ -168,70 +181,130 @@ public class AddUtterances {
            System.out.println(((StatusException)ex).getDetails());
     }
 
-    public static void main(String[] args) throws IOException {
-
-    	createUtterancesJSON();
-        LuisClient luis = null;
-
-        try {
-            luis = new LuisClient(LUIS_BASE, LUIS_APP_ID,
-                    LUIS_APP_VERSION,LUIS_AUTHORING_ID);
-        } catch (Exception ex) {
-            printExceptionMsg(ex);
-            System.exit(0);
-        }
-
-        try {
-
-            System.out.println("Adding utterance(s).");
-            luis.addUtterances(UTTERANCE_FILE)
-                    .raiseForStatus();
-
-            System.out.println("Requesting training.");
-            luis.train()
-                    .raiseForStatus();
-
-            System.out.println("Requested training. Requesting training status.");
-            luis.status()
-                    .raiseForStatus();
-
-        } catch (Exception ex) {
-            printExceptionMsg(ex);
-        }
+    public static void main(String[] args) throws IOException, InterruptedException {
+    	while (true){
+    		Thread.sleep(2000);
+	    	int changes = createUtterancesJSON();
+	    	if(changes==0)
+	    		continue;
+	        LuisClient luis = null;
+	        try {
+		    	luis = new LuisClient(LUIS_BASE, LUIS_APP_ID, LUIS_APP_VERSION, LUIS_AUTHORING_ID);
+	        }
+	        catch (Exception ex) {
+		        printExceptionMsg(ex);
+		        System.exit(0);
+		    }
+	        try {
+	            System.out.println("Adding utterance(s).");
+	            luis.addUtterances(UTTERANCE_FILE).raiseForStatus();
+	            System.out.println("Requesting training.");
+	            luis.train().raiseForStatus();
+	            System.out.println("Requested training. Requesting training status.");
+	            luis.status().raiseForStatus();
+	        } catch (Exception ex) {
+	            printExceptionMsg(ex);
+	        }
+	        //clear RIO_log.txt and Utterances.json
+	        clearfiles("C:\\Users\\Roshan Shibu\\Desktop\\RIO_log.txt");
+	        clearfiles("C:\\Users\\Roshan Shibu\\Desktop\\Utterances.json");
+	        publish();
+    	}
     }
     
-    public static void createUtterancesJSON() throws IOException{
-    	File file = new File("C:\\Users\\Roshan Shibu\\Desktop\\RIO_log.txt"); 
-    	BufferedReader br = new BufferedReader(new FileReader(file)); 
-    	String st;
-    	String[] intents = {"None","change_address","leave_application","password_change_request"};
-    	Scanner s = new Scanner(System.in);
-    	int choice =-1;
-    	String jsonfile= "";
-    	int flag=1;
-    	String focus ="";
-    	while ((st = br.readLine()) != null) {
-    		focus = st.substring(st.indexOf(">")+1);
-    		System.out.println(focus);
-    		System.out.println("Input appropriate intent\n");
-    		for(int i=0;i<intents.length;i++)
-    			System.out.print(i+") "+intents[i]+" ");
-    		choice = s.nextInt();
-    		if(flag==1)
-    			jsonfile+="[";
-    		else
-    			jsonfile+=",";
-    		jsonfile+="{ \"text\": \""+focus+"\", \"intentName\": \""+intents[choice]+"\",\"entityLabels\": []}";
-    		flag++;
-    	}
-    	jsonfile+="]";
+    public static int createUtterancesJSON() throws IOException{
+    	int changelog=0;
+    	try{
+			Class.forName(com.mysql.jdbc.Driver.class.getName());
+			Connection conn = null;
+			conn = DriverManager.getConnection("jdbc:mysql://localhost/rio","root", "");
+			//System.out.print("Database is connected !");
+			java.sql.Statement stmt = null;
+			//System.out.println("Inserting records into the table...");
+		    stmt = conn.createStatement();
+		    String sql = "SELECT * FROM train";
+		    java.sql.ResultSet rs = stmt.executeQuery(sql);
+		    String jsonfile= "";
+		    int flag=1;
+		    while (rs.next()) {
+		    		String train_utterance = rs.getString("train_utterance");
+		    		String train_intent = rs.getString("train_intent");
+		    		int Done = rs.getInt("Done");
+		    		if(Done==1)
+		    			continue;
+		    		else{
+		    			changelog++;
+		    			java.sql.PreparedStatement updateEXP = conn.prepareStatement("update`train` set `Done` = 1  where `train_utterance` = '"+train_utterance+"'");
+		    			int updateEXP_done = updateEXP.executeUpdate();
+		    		}
+		    			
+		    		System.out.println(train_utterance+" "+train_intent+" "+Done);
+		    		if(flag==1)
+		    			jsonfile+="[";
+		    		else
+		    			jsonfile+=",";
+		    		jsonfile+="{ \"text\": \""+train_utterance+"\", \"intentName\": \""+train_intent+"\",\"entityLabels\": []}";
+		    		flag++;
+		    }
+		    if(changelog>0)
+		    	jsonfile+="]";
+		    conn.close();
+		    File filex = new File("C:\\Users\\Roshan Shibu\\Desktop\\Utterances.json");
+			FileWriter fr = new FileWriter(filex, true);
+			fr.write(jsonfile);
+			fr.close();
+			if(changelog>0)
+				System.out.println("Utterances.json has been prepared");
+			else
+				System.out.println("No Changes detected. Utterances.json NOT prepared");
+			
+		}
+		catch(Exception ex){
+			System.out.print("Do not connect to DB - Error:"+ex);
+		} 
+    	return changelog;
+    }
+    
+    public static void clearfiles(String fileloc) throws IOException{
+    	FileWriter fwOb = new FileWriter(fileloc, false); 
+        PrintWriter pwOb = new PrintWriter(fwOb, false);
+        pwOb.flush();
+        pwOb.close();
+        fwOb.close();
+    }
+    
+    public static void publish(){
+    	HttpClient httpclient = HttpClients.createDefault();
+
+        try
+        {
+            URIBuilder builder = new URIBuilder("https://westus.api.cognitive.microsoft.com/luis/api/v2.0/apps/15fb095e-dbfc-4b33-b435-e2d9c48f9ac9/publish");
+
+
+            URI uri = builder.build();
+            HttpPost request = new HttpPost(uri);
+            request.setHeader("Content-Type", "application/json");
+            request.setHeader("Ocp-Apim-Subscription-Key", "58272a2c795749369702922068c382f9");
+
+
+            // Request body
+            StringEntity reqEntity = new StringEntity("{\"versionId\": \"0.1\",\"isStaging\": false,\"region\": \"westus\"}");
+            request.setEntity(reqEntity);
+
+            HttpResponse response = httpclient.execute(request);
+            HttpEntity entity = response.getEntity();
+
+            if (entity != null) 
+            {
+                System.out.println(EntityUtils.toString(entity));
+            }
+        }
+        catch (Exception e)
+        {
+            System.out.println(e.getMessage());
+        }
     	
-    	File filex = new File("C:\\Users\\Roshan Shibu\\Desktop\\Utterances.json");
-    	FileWriter fr = new FileWriter(filex, true);
-    	fr.write(jsonfile);
-    	fr.close();
-    	s.close();
-    	br.close();
     }
 
 }
+    
