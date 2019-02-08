@@ -94,11 +94,15 @@ public class mail {
 					String MAILTEXT = bp.getContent().toString();
 					String TRUEMAILTEXT = MAILTEXT;
 					MAILTEXT=MAILTEXT.replace("\n", "").replace("\r", "");
-					String SUBJECT = "";
+					String SUBJECT = message.getSubject();
+					
+					String TOSEND=MAILTEXT;
+					if(MAILTEXT.equals("") || MAILTEXT.length()<SUBJECT.length())
+						TOSEND=SUBJECT+" "+MAILTEXT;
+					
 					if(message.getSubject().equals(""))
 						SUBJECT = "(no subject)"; 
-					else
-						SUBJECT =message.getSubject(); 
+					
 					//send the body to NLP engine
 					HttpClient httpclient = HttpClients.createDefault();
 
@@ -107,7 +111,7 @@ public class mail {
 						String AppId = "15fb095e-dbfc-4b33-b435-e2d9c48f9ac9";
 						String EndpointKey = "58272a2c795749369702922068c382f9";
 						URIBuilder endpointURLbuilder = new URIBuilder("https://westus.api.cognitive.microsoft.com/luis/v2.0/apps/" + AppId + "?");
-						endpointURLbuilder.setParameter("q", MAILTEXT);
+						endpointURLbuilder.setParameter("q", TOSEND);
 						URI endpointURL = endpointURLbuilder.build();
 						HttpGet request = new HttpGet(endpointURL);
 						request.setHeader("Ocp-Apim-Subscription-Key", EndpointKey);
