@@ -41,7 +41,7 @@ import org.apache.http.util.EntityUtils;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.Statement;
-import java.util.Date;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class mail {
 
@@ -94,7 +94,14 @@ public class mail {
 					String MAILTEXT = bp.getContent().toString();
 					String TRUEMAILTEXT = MAILTEXT;
 					MAILTEXT=MAILTEXT.replace("\n", "").replace("\r", "");
-					String SUBJECT = "";
+					if(MAILTEXT.equals(""))
+						TRUEMAILTEXT="(no body)";
+					String SUBJECT = message.getSubject();
+
+					String TOSEND=MAILTEXT;
+					if(MAILTEXT.equals("") || MAILTEXT.length()<SUBJECT.length())
+						TOSEND=SUBJECT+" "+MAILTEXT;
+					
 					if(message.getSubject().equals(""))
 						SUBJECT = "(no subject)"; 
 					else
@@ -107,7 +114,7 @@ public class mail {
 						String AppId = "15fb095e-dbfc-4b33-b435-e2d9c48f9ac9";
 						String EndpointKey = "58272a2c795749369702922068c382f9";
 						URIBuilder endpointURLbuilder = new URIBuilder("https://westus.api.cognitive.microsoft.com/luis/v2.0/apps/" + AppId + "?");
-						endpointURLbuilder.setParameter("q", MAILTEXT);
+						endpointURLbuilder.setParameter("q", TOSEND);
 						URI endpointURL = endpointURLbuilder.build();
 						HttpGet request = new HttpGet(endpointURL);
 						request.setHeader("Ocp-Apim-Subscription-Key", EndpointKey);
@@ -165,8 +172,9 @@ public class mail {
 							}
 							else
 								body = "Hello, " + message.getFrom()[0].toString().substring(0, message.getFrom()[0].toString().indexOf(" <")) + ",\nOur automated systems have understood your mail regarding " + intent + ".We have initiated appropriate actions.\n\n Team RIO";
-
-							addentry(RECIPIENT,SUBJECT,TRUEMAILTEXT,intent,entityx);
+							//for avatar number
+							int randomNum = ThreadLocalRandom.current().nextInt(1, 7 + 1);
+							addentry(RECIPIENT,SUBJECT,TRUEMAILTEXT,intent,entityx,intentscore,sentiment,sentimentscore,from,subject,body.replace("\n", "		").replace("\r", "		"),randomNum+"");
 							sendFromGMail(from, pass, to, subject, body);
 						}
 					}
@@ -250,7 +258,7 @@ public class mail {
 		}
 	}
 	
-	public static void addentry(String a,String b,String c,String d,String e){
+	public static void addentry(String a,String b,String c,String d,String e,String f,String g,String h, String i, String j, String k, String l){
 		try{
 			Class.forName(com.mysql.jdbc.Driver.class.getName());
 			Connection conn = null;
@@ -265,7 +273,7 @@ public class mail {
 		      long timeMilli = date.getTime();
 		      
 		      String sql = "INSERT INTO data " +
-		    		  "VALUES (\""+a+"\", \""+b+"\", \""+c+"\", \""+d+"\", \""+e+"\", \""+timeMilli+"\")";
+		    		  "VALUES (\""+a+"\", \""+b+"\", \""+c+"\", \""+d+"\", \""+e+"\", \""+f+"\", \""+g+"\", \""+h+"\", \""+i+"\", \""+j+"\", \""+k+"\", \""+l+"\", \""+timeMilli+"\")";
 		      stmt.executeUpdate(sql);
 		      conn.close();
 			}
