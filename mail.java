@@ -122,7 +122,11 @@ public class mail {
 						HttpEntity entity = response.getEntity();
 						if (entity != null) {
 							JSONObject json = new JSONObject(EntityUtils.toString(entity));
-							//System.out.println(json);
+							System.out.println("------------------");
+							System.out.println("------------------");
+							System.out.println(json);
+							System.out.println("------------------");
+							System.out.println("------------------");
 							
 							//String topIntentJSON = json.get("topScoringIntent").toString();
 							String intent = json.getJSONObject("topScoringIntent").getString("intent");
@@ -134,17 +138,23 @@ public class mail {
 							
 							String entityx="null";
 							JSONArray array = json.getJSONArray("entities");
-							if (array.length()!=0){
-									entityx = array.getJSONObject(0).getString("entity");
-									//System.out.println("The address is changed to "+entityx);
-							}
+							
+							
 							System.out.println("The mail was matched to intent ->" + intent);
 							System.out.println("                with a score of->" + intentscore);
 							System.out.println("\n");
 							System.out.println("The mail sentiment was found to be ->" + sentiment);
 							System.out.println("                    with a score of->" + sentimentscore);
-							System.out.println("\n\nReplying to sender now ...");
-							
+							int entitycount=array.length();
+							int ec=0;
+							while(ec<entitycount){
+								if (array.getJSONObject(ec).getString("type").equals("address")){
+									entityx = array.getJSONObject(ec).getString("entity");
+									System.out.println("address entity->"+entityx);
+								}
+								ec++;
+							}
+														
 							EntityUtils.consume(entity);
 							request.releaseConnection();
 							request.abort();
@@ -174,7 +184,9 @@ public class mail {
 								body = "Hello, " + message.getFrom()[0].toString().substring(0, message.getFrom()[0].toString().indexOf(" <")) + ",\nOur automated systems have understood your mail regarding " + intent + ".We have initiated appropriate actions.\n\n Team RIO";
 							//for avatar number
 							int randomNum = ThreadLocalRandom.current().nextInt(1, 7 + 1);
+							System.out.println("\n\nWriting to db now ...");
 							addentry(RECIPIENT,SUBJECT,TRUEMAILTEXT,intent,entityx,intentscore,sentiment,sentimentscore,from,subject,body.replace("\n", "		").replace("\r", "		"),randomNum+"");
+							System.out.println("\n\nReplying to sender now ...");
 							sendFromGMail(from, pass, to, subject, body);
 						}
 					}
@@ -273,7 +285,8 @@ public class mail {
 		      long timeMilli = date.getTime();
 		      
 		      String sql = "INSERT INTO data " +
-		    		  "VALUES (\""+a+"\", \""+b+"\", \""+c+"\", \""+d+"\", \""+e+"\", \""+f+"\", \""+g+"\", \""+h+"\", \""+i+"\", \""+j+"\", \""+k+"\", \""+l+"\", \""+timeMilli+"\")";
+		    		  "VALUES (\""+a+"\", \""+b+"\", \""+c+"\", \""+d+"\", \""+e+"\", \""+f+"\", \""+g+"\", \""+h+"\", \""+i+"\", \""+j+"\", \""+k+"\", \""+l+"\", \""+timeMilli+"\""+",\"0\")";
+		      System.out.println("quiery is--> "+sql);
 		      stmt.executeUpdate(sql);
 		      conn.close();
 			}
